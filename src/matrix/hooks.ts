@@ -53,10 +53,14 @@ export function useClientTick(): number {
     const bump = () => {
       if (scheduled) return;
       scheduled = true;
-      requestAnimationFrame(() => {
+      const run = () => {
         scheduled = false;
         setTick((t) => t + 1);
-      });
+      };
+      // requestAnimationFrame is paused while the window is hidden (closed to the Dock), but the
+      // Dock badge still has to update then, so fall back to a timer.
+      if (document.hidden) setTimeout(run, 250);
+      else requestAnimationFrame(run);
     };
     // The SDK's typed emitter can't express "any of these events"; use the untyped view.
     const emitter = client as unknown as { on(e: string, f: () => void): void; off(e: string, f: () => void): void };

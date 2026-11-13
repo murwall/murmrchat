@@ -3,7 +3,8 @@ import { ClientEvent, EventType, NotificationCountType } from "matrix-js-sdk";
 import type { MatrixClient, MatrixEvent } from "matrix-js-sdk";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { dmRoomIds, joinedRooms } from "./rooms";
+import { dmRoomIds, joinedRooms, unreadInfo } from "./rooms";
+import { isMuted } from "./notifSettings";
 import { stripReplyFallback } from "../util/format";
 import { isDndActive } from "./status";
 
@@ -95,18 +96,30 @@ export function useNotifications(client: MatrixClient, currentRoomId: string | n
     };
   }, [client]);
 
-  // Dock badge: mentions + unread DMs, like Mattermost.
+  // Dock badge, like Mattermost:
+  //   red number = unread DM messages + mentions (incl. in threads), muted rooms excluded
+  //   red dot    = no mentions, but some (unmuted) channel has unread messages
+  //   nothing    = all caught up
+  const lastBadge = useRef<string | null>(null);
   useEffect(() => {
     if (!inTauri()) return;
     const dms = dmRoomIds(client);
     let count = 0;
+    let unreadChannels = false;
     for (const r of joinedRooms(client)) {
-      count += dms.has(r.roomId)
-        ? r.getUnreadNotificationCount(NotificationCountType.Total)
-        : r.getUnreadNotificationCount(NotificationCountType.Highlight);
+      if (r.isSpaceRoom() || isMuted(r)) continue;
+      if (dms.has(r.roomId)) {
+        count += r.getUnreadNotificationCount(NotificationCountType.Total);
+      } else {
+        count += r.getUnreadNotificationCount(NotificationCountType.Highlight);
+        if (unreadInfo(r).unread) unreadChannels = true;
+      }
     }
-    getCurrentWindow()
-      .setBadgeCount(count > 0 ? count : undefined)
-      .catch(() => {});
+    const badge = count > 0 ? String(count) : unreadChannels ? "•" : "";
+    if (badge === lastBadge.current) return;
+    lastBadge.current = badge;
+    const win = getCurrentWindow();
+    // setBadgeLabel shows arbitrary text (the dot); undefined clears it.
+    (count > 0 ? win.setBadgeCount(count) : win.setBadgeLabel(badge || undefined)).catch(() => {});
   }, [client, tick]);
 }
