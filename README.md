@@ -7,8 +7,27 @@ A Mattermost-style desktop client for Matrix (Tauri + React + TypeScript + matri
 ```bash
 npm install
 npm run tauri dev      # development, with hot reload
-npm run tauri build    # produces a .app / .dmg in src-tauri/target/release/bundle
+npm run tauri build    # release build: .app and .dmg
 ```
+
+Release output:
+
+- `src-tauri/target/release/bundle/macos/Matterix.app`
+- `src-tauri/target/release/bundle/dmg/Matterix_<version>_aarch64.dmg`
+
+Install by dragging `Matterix.app` into `/Applications`. The app is ad-hoc signed (no Apple Developer ID),
+so it runs on the machine that built it; to share it with others it needs Developer ID signing and notarization.
+
+The dev build and the packaged app keep separate local data and separate keychain sessions, so each needs its own
+sign-in (and Security Key unlock). Don't point both at the same session.
+
+Diagnostics from the packaged app (CSP violations, uncaught errors) go to stderr:
+
+```bash
+/Applications/Matterix.app/Contents/MacOS/matterix
+```
+
+The icon source is `src-tauri/icons/icon-source.svg`; regenerate the icon set with `npm run tauri icon <1024px png>`.
 
 ## Concepts
 

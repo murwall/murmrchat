@@ -1,12 +1,20 @@
+import { invoke } from "@tauri-apps/api/core";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
-if (import.meta.env.DEV) {
-  // Surface Content-Security-Policy violations in the dev log.
-  document.addEventListener("securitypolicyviolation", (e) =>
-    console.warn(`CSP blocked ${e.effectiveDirective}: ${e.blockedURI || "(inline)"} at ${e.sourceFile}:${e.lineNumber}`),
-  );
+/** Diagnostics: dev → console (forwarded to the Vite log); packaged app → stderr via Tauri. */
+function diag(level: "warn" | "error", message: string) {
+  if (import.meta.env.DEV) console[level](message);
+  else if ("__TAURI_INTERNALS__" in window) void invoke("frontend_log", { level, message }).catch(() => {});
+}
+document.addEventListener("securitypolicyviolation", (e) =>
+  diag("warn", `CSP blocked ${e.effectiveDirective}: ${e.blockedURI || "(inline)"} at ${e.sourceFile}:${e.lineNumber}`),
+);
+if (!import.meta.env.DEV) {
+  window.addEventListener("error", (e) => diag("error", `Uncaught: ${e.message} at ${e.filename}:${e.lineno}`));
+  window.addEventListener("unhandledrejection", (e) => diag("error", `Unhandled rejection: ${String(e.reason)}`));
+  diag("warn", "UI started");
 }
 
 // ⌘R / Ctrl+R reloads the window (the Tauri webview has no built-in reload shortcut).

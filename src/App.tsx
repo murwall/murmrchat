@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import type { MatrixClient } from "matrix-js-sdk";
 import { logout, startMatrixClient } from "./matrix/client";
@@ -22,8 +23,14 @@ export default function App() {
     try {
       const client = await startMatrixClient(session);
       setState({ kind: "ready", client });
+      if (!import.meta.env.DEV && "__TAURI_INTERNALS__" in window) {
+        void invoke("frontend_log", { level: "info", message: "Matrix client started (crypto ready)" }).catch(() => {});
+      }
     } catch (e) {
       const err = e as Error & { errcode?: string };
+      if (!import.meta.env.DEV && "__TAURI_INTERNALS__" in window) {
+        void invoke("frontend_log", { level: "error", message: `Client start failed: ${err.message}` }).catch(() => {});
+      }
       if (err.errcode === "M_UNKNOWN_TOKEN") await clearSession();
       setState({ kind: "login", error: err.message });
     }

@@ -18,6 +18,12 @@ export interface StoredSession {
 }
 
 const SESSION_KEY = "matterix.session";
+/**
+ * Keychain entry for the session. The dev build (http://localhost:1420) and the packaged app
+ * (tauri://localhost) have separate browser storage — and so separate encryption stores — so they
+ * must not share a session: the second one would start the same device with an empty key store.
+ */
+const KEYCHAIN_KEY = import.meta.env.DEV ? SESSION_KEY : `${SESSION_KEY}.app`;
 const CLIENT_IDS_KEY = "matterix.oauthClientIds";
 
 /** Public "home page" for the app, required by OAuth dynamic client registration. */
@@ -28,10 +34,10 @@ export async function loadSession(): Promise<StoredSession | null> {
     // One-time migration from the first version, which kept the session in localStorage.
     const legacy = localStorage.getItem(SESSION_KEY);
     if (legacy) {
-      await setSecret(SESSION_KEY, legacy);
+      await setSecret(KEYCHAIN_KEY, legacy);
       localStorage.removeItem(SESSION_KEY);
     }
-    const raw = await getSecret(SESSION_KEY);
+    const raw = await getSecret(KEYCHAIN_KEY);
     return raw ? (JSON.parse(raw) as StoredSession) : null;
   } catch (e) {
     console.error("Could not read session from keychain", e);
@@ -43,13 +49,13 @@ export async function loadSession(): Promise<StoredSession | null> {
 let writeChain: Promise<void> = Promise.resolve();
 
 export function saveSession(s: StoredSession): Promise<void> {
-  writeChain = writeChain.then(() => setSecret(SESSION_KEY, JSON.stringify(s))).catch((e) => console.error(e));
+  writeChain = writeChain.then(() => setSecret(KEYCHAIN_KEY, JSON.stringify(s))).catch((e) => console.error(e));
   return writeChain;
 }
 
 export async function clearSession() {
   await writeChain;
-  await deleteSecret(SESSION_KEY).catch(() => {});
+  await deleteSecret(KEYCHAIN_KEY).catch(() => {});
 }
 
 function newPickleKey(): string {

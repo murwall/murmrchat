@@ -29,13 +29,21 @@ fn secret_delete(key: String) -> Result<(), String> {
     }
 }
 
+/// Write a diagnostic line from the web UI to stderr (CSP violations, uncaught errors).
+/// The packaged app has no visible devtools console, so this is how problems surface.
+#[tauri::command]
+fn frontend_log(level: String, message: String) {
+    let msg: String = message.chars().take(2000).collect();
+    eprintln!("[matterix:{level}] {msg}");
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![secret_get, secret_set, secret_delete])
+        .invoke_handler(tauri::generate_handler![secret_get, secret_set, secret_delete, frontend_log])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
