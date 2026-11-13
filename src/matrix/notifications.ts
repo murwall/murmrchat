@@ -1,0 +1,92 @@
+import { useEffect, useRef } from "react";
+import { ClientEvent, EventType, NotificationCountType } from "matrix-js-sdk";
+import type { MatrixClient, MatrixEvent } from "matrix-js-sdk";
+import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { dmRoomIds, joinedRooms } from "./rooms";
+import { stripReplyFallback } from "../util/format";
+import { isDndActive } from "./status";
+
+const inTauri = () => "__TAURI_INTERNALS__" in window;
+
+async function ensurePermission(): Promise<boolean> {
+  if (!inTauri()) return false;
+  if (await isPermissionGranted()) return true;
+  return (await requestPermission()) === "granted";
+}
+
+/**
+ * Desktop notifications for messages that the user's push rules say should notify
+ * (mentions, DMs, keywords — the same rules Element uses), plus the Dock badge count.
+ */
+export function useNotifications(client: MatrixClient, currentRoomId: string | null, tick: number) {
+  const current = useRef(currentRoomId);
+  current.current = currentRoomId;
+
+  useEffect(() => {
+    let allowed = false;
+    ensurePermission().then((ok) => (allowed = ok));
+    const startedAt = Date.now();
+    const seen = new Set<string>();
+
+    const onEvent = async (ev: MatrixEvent) => {
+      const id = ev.getId();
+      if (!id || seen.has(id) || ev.getTs() < startedAt - 10_000) return;
+      if (ev.getSender() === client.getUserId()) return;
+      const type = ev.getType();
+      if (type !== EventType.RoomMessage && type !== EventType.RoomMessageEncrypted) return;
+      seen.add(id);
+
+      await client.decryptEventIfNeeded(ev);
+      if (ev.getType() !== EventType.RoomMessage || ev.isRelation("m.replace")) return;
+      const room = client.getRoom(ev.getRoomId());
+      if (!room) return;
+      if (room.roomId === current.current && document.hasFocus()) return;
+
+      const actions = client.getPushActionsForEvent(ev, true);
+      if (!actions?.notify) return;
+      if (isDndActive()) return; // Do Not Disturb: no pop-ups (badge still updates)
+
+      const sender = ev.sender?.name ?? ev.getSender() ?? "Someone";
+      const isDm = dmRoomIds(client).has(room.roomId);
+      const content = ev.getContent();
+      const body = ev.isDecryptionFailure()
+        ? "🔒 Encrypted message"
+        : content.msgtype === "m.image"
+          ? "sent an image"
+          : content.msgtype === "m.file"
+            ? "sent a file"
+            : stripReplyFallback(String(content.body ?? ""));
+
+      if (allowed) {
+        sendNotification({
+          title: isDm ? sender : `${sender} in ${room.name}`,
+          body: body.length > 200 ? `${body.slice(0, 200)}…` : body,
+        });
+      }
+      if (inTauri() && actions.tweaks?.highlight) {
+        getCurrentWindow().requestUserAttention(2 /* Informational */).catch(() => {});
+      }
+    };
+
+    client.on(ClientEvent.Event, onEvent);
+    return () => {
+      client.off(ClientEvent.Event, onEvent);
+    };
+  }, [client]);
+
+  // Dock badge: mentions + unread DMs, like Mattermost.
+  useEffect(() => {
+    if (!inTauri()) return;
+    const dms = dmRoomIds(client);
+    let count = 0;
+    for (const r of joinedRooms(client)) {
+      count += dms.has(r.roomId)
+        ? r.getUnreadNotificationCount(NotificationCountType.Total)
+        : r.getUnreadNotificationCount(NotificationCountType.Highlight);
+    }
+    getCurrentWindow()
+      .setBadgeCount(count > 0 ? count : undefined)
+      .catch(() => {});
+  }, [client, tick]);
+}
