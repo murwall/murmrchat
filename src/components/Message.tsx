@@ -236,7 +236,7 @@ function MessageBody({ ev }: { ev: MatrixEvent }) {
 
   const html =
     content.format === "org.matrix.custom.html" && typeof content.formatted_body === "string"
-      ? sanitizeHtml(content.formatted_body)
+      ? sanitizeHtml(content.formatted_body, { me: client.getUserId() })
       : linkify(stripReplyFallback(String(content.body ?? "")));
 
   return (
@@ -244,7 +244,7 @@ function MessageBody({ ev }: { ev: MatrixEvent }) {
       {msgtype === MsgType.Emote && <span className="emote-name">* {ev.sender?.name} </span>}
       <span
         className="post-text"
-        dangerouslySetInnerHTML={{ __html: markMentions(html, client.getUserId()) }}
+        dangerouslySetInnerHTML={{ __html: html }}
         onClick={(e) => {
           // Mention pills open the profile card instead of the browser.
           const a = (e.target as HTMLElement).closest("a[data-mention]") as HTMLAnchorElement | null;
@@ -272,14 +272,6 @@ function MoreMenu({ onClose, children }: { onClose: () => void; children: React.
     };
   }, [onClose]);
   return <div className="more-menu">{children}</div>;
-}
-
-/** Turn matrix.to user links into mention pills (highlighted if it's me). */
-function markMentions(html: string, me: string | null): string {
-  return html.replace(/<a href="https:\/\/matrix\.to\/#\/(@[^"]+)"([^>]*)>/g, (_m, id: string, rest: string) => {
-    const userId = decodeURIComponent(id);
-    return `<a href="https://matrix.to/#/${id}" data-mention="${userId}" class="mention${userId === me ? " me" : ""}"${rest.replace(/\s(target|rel|class)="[^"]*"/g, "")}>`;
-  });
 }
 
 function ImageBody({ content }: { content: Record<string, any> }) {

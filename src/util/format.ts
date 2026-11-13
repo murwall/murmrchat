@@ -31,14 +31,47 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-/** Sanitize an incoming `formatted_body`. Drops <mx-reply> fallbacks and images. */
-export function sanitizeHtml(html: string): string {
+const MATRIX_USER_ID = /^@[^\s:"'<>]+:[A-Za-z0-9.\-:[\]]+$/;
+
+/** If `href` is a matrix.to link to a user, return the (validated) user ID. */
+function mentionTarget(href: string | null): string | null {
+  const m = href?.match(/^https:\/\/matrix\.to\/#\/(@[^/?#]+)$/);
+  if (!m) return null;
+  let id: string;
+  try {
+    id = decodeURIComponent(m[1]);
+  } catch {
+    return null; // malformed escape sequence
+  }
+  return MATRIX_USER_ID.test(id) ? id : null;
+}
+
+/**
+ * Sanitize an incoming `formatted_body` and turn user links into mention pills.
+ * Drops <mx-reply> fallbacks and images.
+ *
+ * Security: all post-processing happens on the sanitized DOM via setAttribute (which escapes),
+ * never by string-splicing into HTML.
+ */
+export function sanitizeHtml(html: string, opts: { me?: string | null } = {}): string {
   const withoutReply = html.replace(/<mx-reply>[\s\S]*?<\/mx-reply>/gi, "");
-  return DOMPurify.sanitize(withoutReply, {
+  const fragment = DOMPurify.sanitize(withoutReply, {
     ALLOWED_TAGS,
     ALLOWED_ATTR: ["href", "data-mx-color", "data-mx-bg-color", "color", "class", "start"],
     ALLOWED_URI_REGEXP: /^(https?|mailto|matrix):/i,
+    RETURN_DOM_FRAGMENT: true,
   });
+  for (const a of Array.from(fragment.querySelectorAll("a[href]"))) {
+    const userId = mentionTarget(a.getAttribute("href"));
+    if (!userId) continue;
+    a.setAttribute("data-mention", userId);
+    a.setAttribute("class", userId === opts.me ? "mention me" : "mention");
+    a.removeAttribute("target");
+    a.removeAttribute("rel");
+  }
+  const container = document.createElement("div");
+  container.appendChild(fragment);
+  return container.innerHTML;
 }
 
 /** Plain text with URLs turned into links. */
