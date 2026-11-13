@@ -14,6 +14,7 @@ import { startStatus } from "../matrix/status";
 import { MembersPanel, PeopleDialog, ProfileCard } from "./People";
 import { QuickSwitcher } from "./QuickSwitcher";
 import { SearchView } from "./SearchView";
+import { shortcut } from "../util/platform";
 import { SecurityBanner } from "./SecurityBanner";
 import { Sidebar } from "./Sidebar";
 import { TeamBar } from "./TeamBar";
@@ -191,7 +192,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
             <SearchIcon />
             <input
               ref={searchRef}
-              placeholder="Search messages (⌘F)"
+              placeholder={`Search messages (${shortcut("F")})`}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => {

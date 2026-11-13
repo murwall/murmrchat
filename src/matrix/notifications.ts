@@ -3,6 +3,7 @@ import { ClientEvent, EventType, NotificationCountType } from "matrix-js-sdk";
 import type { MatrixClient, MatrixEvent } from "matrix-js-sdk";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { dmRoomIds, joinedRooms, unreadInfo } from "./rooms";
 import { isMuted } from "./notifSettings";
 import { stripReplyFallback } from "../util/format";
@@ -118,8 +119,8 @@ export function useNotifications(client: MatrixClient, currentRoomId: string | n
     const badge = count > 0 ? String(count) : unreadChannels ? "•" : "";
     if (badge === lastBadge.current) return;
     lastBadge.current = badge;
-    const win = getCurrentWindow();
-    // setBadgeLabel shows arbitrary text (the dot); undefined clears it.
-    (count > 0 ? win.setBadgeCount(count) : win.setBadgeLabel(badge || undefined)).catch(() => {});
+    // Native side shows this per platform: Dock badge (macOS), taskbar overlay + tray (Windows),
+    // launcher badge + tray (Linux).
+    void invoke("set_unread", { count, unread: unreadChannels }).catch(() => {});
   }, [client, tick]);
 }
