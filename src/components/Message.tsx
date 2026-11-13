@@ -10,6 +10,7 @@ import { requestEdit } from "./Composer";
 import { BookmarkIcon, EditIcon, FileIcon, MoreIcon, PinIcon, ReplyIcon, SmileIcon, ThreadIcon, TrashIcon } from "./icons";
 import { canPin, getPinnedIds, isSaved, togglePinned, toggleSaved } from "../matrix/saved";
 import { AvatarWithStatus, StatusEmoji } from "./StatusUI";
+import { MessageShield } from "./Shield";
 import { requestUnlock } from "./SecurityBanner";
 import { alertDialog, confirmDialog } from "../util/dialogs";
 
@@ -95,7 +96,12 @@ export function Message({ ev, room, continuation, inThread, onOpenThread, highli
     <div data-event-id={ev.getId()} className={`post ${continuation ? "continuation" : ""} ${pending ? "pending" : ""} ${highlight || mentionsMe ? "highlight" : ""} ${mine ? "mine" : ""}`}>
       <div className="post-gutter">
         {continuation ? (
-          <span className="post-hover-time">{formatTime(ev.getTs())}</span>
+          <>
+            <span className="post-hover-time">{formatTime(ev.getTs())}</span>
+            <span className="gutter-shield">
+              <MessageShield ev={ev} room={room} />
+            </span>
+          </>
         ) : (
           <button className="avatar-btn" onClick={(e) => nav.showProfile(senderId, { x: e.clientX, y: e.clientY })}>
             <AvatarWithStatus userId={senderId} mxc={sender?.getMxcAvatarUrl()} name={name} size={36} />
@@ -131,6 +137,7 @@ export function Message({ ev, room, continuation, inThread, onOpenThread, highli
             <span className="post-time" title={new Date(ev.getTs()).toLocaleString()}>
               {formatTime(ev.getTs())}
             </span>
+            <MessageShield ev={ev} room={room} />
           </div>
         )}
         <ReplyQuote ev={ev} room={room} />
