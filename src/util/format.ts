@@ -31,6 +31,14 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
+// Senders must not be able to apply our CSS classes (e.g. "modal-backdrop" would let a message
+// cover the whole window with fake UI). The only class kept is a code block's language hint.
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+  if (data.attrName !== "class") return;
+  const ok = node.nodeName === "CODE" && /^language-[A-Za-z0-9_+-]{1,32}$/.test(data.attrValue);
+  if (!ok) data.keepAttr = false;
+});
+
 const MATRIX_USER_ID = /^@[^\s:"'<>]+:[A-Za-z0-9.\-:[\]]+$/;
 
 /** If `href` is a matrix.to link to a user, return the (validated) user ID. */
