@@ -37,7 +37,13 @@ export default function App() {
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       const a = (e.target as HTMLElement).closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!a || a.hasAttribute("download")) return;
+      if (!a) return;
+      // Never navigate the app window to a blob: URL (it would share the app's origin); only allow downloads.
+      if (a.protocol === "blob:" && !a.hasAttribute("download")) {
+        e.preventDefault();
+        return;
+      }
+      if (a.hasAttribute("download")) return;
       if (/^https?:|^mailto:/.test(a.href)) {
         e.preventDefault();
         openExternal(a.href);

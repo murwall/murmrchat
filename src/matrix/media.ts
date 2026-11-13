@@ -12,6 +12,24 @@ export interface EncryptedFile {
 
 const cache = new Map<string, Promise<string>>();
 
+/**
+ * Media types we let the webview interpret. Everything else (HTML, SVG, XML, PDF, scripts, …)
+ * becomes an opaque binary blob: a sender controls `info.mimetype`, and a blob: URL has the
+ * app's own origin, so rendering e.g. text/html from it would run their code inside the app.
+ */
+const SAFE_MEDIA_TYPES = new Set([
+  "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp",
+  "video/mp4", "video/webm", "video/quicktime",
+  "audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg", "audio/webm", "audio/wav", "audio/x-wav", "audio/flac",
+]);
+
+export const DOWNLOAD_TYPE = "application/octet-stream";
+
+export function safeMimeType(mimetype: string | undefined): string {
+  const t = (mimetype ?? "").toLowerCase().split(";")[0].trim();
+  return SAFE_MEDIA_TYPES.has(t) ? t : DOWNLOAD_TYPE;
+}
+
 function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const normal = b64.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normal + "=".repeat((4 - (normal.length % 4)) % 4);
@@ -53,7 +71,8 @@ export function getMediaUrl(
 ): Promise<string> {
   const mxc = src.file?.url ?? src.mxc;
   if (!mxc) return Promise.reject(new Error("no media"));
-  const cacheKey = `${mxc}|${thumb ? `${thumb.w}x${thumb.h}${thumb.method}` : "full"}`;
+  const type = safeMimeType(mimetype);
+  const cacheKey = `${mxc}|${thumb ? `${thumb.w}x${thumb.h}${thumb.method}` : "full"}|${type}`;
   let p = cache.get(cacheKey);
   if (!p) {
     p = (async () => {
@@ -65,7 +84,7 @@ export function getMediaUrl(
       if (!httpUrl) throw new Error("bad mxc url");
       let data = await fetchAuthed(client, httpUrl);
       if (src.file) data = await decryptAttachment(data, src.file);
-      return URL.createObjectURL(new Blob([data], mimetype ? { type: mimetype } : undefined));
+      return URL.createObjectURL(new Blob([data], { type }));
     })();
     p.catch(() => cache.delete(cacheKey));
     cache.set(cacheKey, p);
@@ -92,6 +111,6 @@ export function useMediaUrl(
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, key, thumb?.w, thumb?.h]);
+  }, [client, key, thumb?.w, thumb?.h, mimetype]);
   return url;
 }

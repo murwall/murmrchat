@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { EventType, MsgType, RelationType } from "matrix-js-sdk";
 import type { MatrixEvent, Room } from "matrix-js-sdk";
 import { useClient, useNav } from "../matrix/hooks";
-import { useMediaUrl, type EncryptedFile } from "../matrix/media";
+import { DOWNLOAD_TYPE, useMediaUrl, type EncryptedFile } from "../matrix/media";
 import { formatTime, linkify, sanitizeHtml, stripReplyFallback, userColor } from "../util/format";
 import { Avatar } from "./Avatar";
 import { EmojiPopover } from "./EmojiPopover";
@@ -298,6 +298,7 @@ function ImageBody({ content }: { content: Record<string, any> }) {
 function ImageViewer({ content, file, onClose }: { content: Record<string, any>; file?: EncryptedFile; onClose: () => void }) {
   const client = useClient();
   const full = useMediaUrl(client, file ? { file } : { mxc: content.url }, undefined, content.info?.mimetype);
+  const download = useMediaUrl(client, file ? { file } : { mxc: content.url }, undefined, DOWNLOAD_TYPE);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -308,8 +309,8 @@ function ImageViewer({ content, file, onClose }: { content: Record<string, any>;
       {full ? <img src={full} alt={content.body} /> : <div className="muted">Loading…</div>}
       <div className="image-viewer-bar" onClick={(e) => e.stopPropagation()}>
         <span>{content.body}</span>
-        {full && (
-          <a href={full} download={content.body} className="btn-secondary">
+        {download && (
+          <a href={download} download={content.body} className="btn-secondary">
             Download
           </a>
         )}
@@ -322,7 +323,7 @@ function FileBody({ content }: { content: Record<string, any> }) {
   const client = useClient();
   const file = content.file as EncryptedFile | undefined;
   const info = content.info ?? {};
-  const url = useMediaUrl(client, file ? { file } : { mxc: content.url }, undefined, info.mimetype);
+  const url = useMediaUrl(client, file ? { file } : { mxc: content.url }, undefined, DOWNLOAD_TYPE);
   const size = info.size ? `${(info.size / 1024 / 1024).toFixed(info.size > 1024 * 1024 ? 1 : 2)} MB` : "";
   return (
     <a className="file-card" href={url ?? undefined} download={content.body}>
