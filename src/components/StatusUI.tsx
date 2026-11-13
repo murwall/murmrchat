@@ -10,6 +10,7 @@ import {
   type CustomStatus,
 } from "../matrix/status";
 import { Avatar } from "./Avatar";
+import { getNotificationPreviews, setNotificationPreviews } from "../matrix/notifications";
 import { EmojiPopover } from "./EmojiPopover";
 import { CloseIcon } from "./icons";
 
@@ -168,6 +169,7 @@ export function MyStatusMenu({ onSecurityKey, onLogout }: { onSecurityKey: () =>
             <div className="muted small status-note">Your server doesn't share online status, so others may not see this. DND still silences notifications here.</div>
           )}
           <div className="menu-sep" />
+          <PreviewToggle />
           <button
             className="status-option"
             onClick={() => {
@@ -190,6 +192,22 @@ export function MyStatusMenu({ onSecurityKey, onLogout }: { onSecurityKey: () =>
       )}
       {dialog && <CustomStatusDialog current={custom} onClose={() => setDialog(false)} />}
     </div>
+  );
+}
+
+function PreviewToggle() {
+  const [on, setOn] = useState(getNotificationPreviews());
+  return (
+    <button
+      className="status-option"
+      title="Message text in notifications is visible in macOS Notification Center and on the lock screen"
+      onClick={() => {
+        setNotificationPreviews(!on);
+        setOn(!on);
+      }}
+    >
+      {on ? "☑" : "☐"} Show message text in notifications
+    </button>
   );
 }
 

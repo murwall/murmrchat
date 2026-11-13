@@ -9,6 +9,25 @@ import { isDndActive } from "./status";
 
 const inTauri = () => "__TAURI_INTERNALS__" in window;
 
+const PREVIEW_KEY = "matterix.notificationPreviews";
+
+/** Whether desktop notifications include message text (they show in macOS Notification Center). */
+export function getNotificationPreviews(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setNotificationPreviews(on: boolean) {
+  try {
+    localStorage.setItem(PREVIEW_KEY, on ? "on" : "off");
+  } catch {
+    /* ignore */
+  }
+}
+
 async function ensurePermission(): Promise<boolean> {
   if (!inTauri()) return false;
   if (await isPermissionGranted()) return true;
@@ -59,9 +78,10 @@ export function useNotifications(client: MatrixClient, currentRoomId: string | n
             : stripReplyFallback(String(content.body ?? ""));
 
       if (allowed) {
+        const preview = getNotificationPreviews();
         sendNotification({
           title: isDm ? sender : `${sender} in ${room.name}`,
-          body: body.length > 200 ? `${body.slice(0, 200)}…` : body,
+          body: preview ? (body.length > 200 ? `${body.slice(0, 200)}…` : body) : "New message",
         });
       }
       if (inTauri() && actions.tweaks?.highlight) {

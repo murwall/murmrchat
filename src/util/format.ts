@@ -2,6 +2,8 @@ import DOMPurify from "dompurify";
 import { marked } from "marked";
 
 marked.setOptions({ gfm: true, breaks: true });
+// Raw HTML typed into the composer is shown as text, not sent as markup (like Mattermost).
+marked.use({ renderer: { html: ({ text }) => escapeHtml(text) } });
 
 /** Markdown → Matrix `formatted_body`. Returns null when the text has no formatting. */
 export function markdownToHtml(text: string): string | null {
