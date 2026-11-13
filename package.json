@@ -28,5 +28,12 @@
     "@vitejs/plugin-react": "^6.0.2",
     "typescript": "~6.0.3",
     "vite": "^8.0.16"
-  }
+  },
+  "license": "Apache-2.0",
+  "description": "Mattermost-style desktop client for Matrix",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/murwall/murmrchat.git"
+  },
+  "author": "Marcus Murwall <forge@murwall.se>"
 }
