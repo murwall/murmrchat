@@ -17,6 +17,7 @@ import { SecurityBanner } from "./SecurityBanner";
 import { Sidebar } from "./Sidebar";
 import { TeamBar } from "./TeamBar";
 import { ThreadListPanel, ThreadPanel } from "./ThreadPanel";
+import { BrokenPanel, ErrorBoundary } from "./ErrorBoundary";
 
 type RightPanel =
   | { kind: "thread"; rootId: string }
@@ -222,6 +223,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
               setView((v) => (v.kind === "threads" ? v : { kind: "channel" }));
             }}
           />
+          <ErrorBoundary resetKeys={[effectiveTeam]} fallback={(error, reset) => <aside className="sidebar"><BrokenPanel error={error} reset={reset} what="the sidebar" /></aside>}>
           <Sidebar
             teamId={effectiveTeam}
             selectedRoomId={view.kind === "channel" ? roomId : null}
@@ -236,7 +238,12 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
             onCreateChannel={() => setDialog("create-channel")}
             onBrowseChannels={() => setDialog("browse-channels")}
           />
+          </ErrorBoundary>
           <main className="center">
+            <ErrorBoundary
+              resetKeys={[roomId, view.kind]}
+              fallback={(error, reset) => <BrokenPanel error={error} reset={reset} what="this view" />}
+            >
             {view.kind === "threads" ? (
               <GlobalThreads onOpen={openThreadIn} />
             ) : view.kind === "search" ? (
@@ -266,7 +273,16 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
             ) : (
               <div className="empty-state muted">No channels in this team yet.</div>
             )}
+            </ErrorBoundary>
           </main>
+          <ErrorBoundary
+            resetKeys={[roomId, right?.kind, right?.kind === "thread" ? right.rootId : null]}
+            fallback={(error, reset) => (
+              <aside className="right-panel">
+                <BrokenPanel error={error} reset={reset} what="this panel" />
+              </aside>
+            )}
+          >
           {room && view.kind === "channel" && right?.kind === "thread" && (
             <ThreadPanel key={right.rootId} room={room} rootId={right.rootId} onClose={() => setRight(null)} />
           )}
@@ -278,6 +294,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
           )}
           {room && view.kind === "channel" && right?.kind === "pinned" && <PinnedPanel room={room} onClose={() => setRight(null)} />}
           {right?.kind === "saved" && <SavedPanel onClose={() => setRight(null)} />}
+          </ErrorBoundary>
         </div>
         {profile && <ProfileCard key={profile.userId} userId={profile.userId} pos={profile.pos} onClose={() => setProfile(null)} />}
         {dialog === "people" && <PeopleDialog onClose={() => setDialog(null)} />}

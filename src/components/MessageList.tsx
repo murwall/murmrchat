@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MatrixEvent, Room } from "matrix-js-sdk";
 import { formatDateSeparator } from "../util/format";
 import { isRenderable, isSystemEvent, Message } from "./Message";
+import { BrokenMessage, ErrorBoundary } from "./ErrorBoundary";
 
 interface Props {
   room: Room;
@@ -84,15 +85,16 @@ export function MessageList({ room, events, inThread, onOpenThread, loadMore, he
       ts - prev.getTs() < GROUP_WINDOW_MS &&
       !(prev.isThreadRoot && !inThread);
     rows.push(
-      <Message
-        key={ev.getId() ?? ev.getTxnId()}
-        ev={ev}
-        room={room}
-        continuation={continuation}
-        inThread={inThread}
-        onOpenThread={onOpenThread}
-        highlight={ev.getId() === highlightId}
-      />,
+      <ErrorBoundary key={ev.getId() ?? ev.getTxnId()} fallback={() => <BrokenMessage />}>
+        <Message
+          ev={ev}
+          room={room}
+          continuation={continuation}
+          inThread={inThread}
+          onOpenThread={onOpenThread}
+          highlight={ev.getId() === highlightId}
+        />
+      </ErrorBoundary>,
     );
     prev = ev;
   }

@@ -9,6 +9,7 @@ import { DropOverlay } from "./DropOverlay";
 import { CloseIcon } from "./icons";
 import { Message } from "./Message";
 import { MessageList } from "./MessageList";
+import { BrokenMessage, ErrorBoundary } from "./ErrorBoundary";
 
 interface ThreadProps {
   room: Room;
@@ -65,7 +66,9 @@ export function ThreadPanel({ room, rootId, onClose }: ThreadProps) {
         header={
           rootEvent ? (
             <div className="thread-root">
-              <Message ev={rootEvent} room={room} continuation={false} inThread />
+              <ErrorBoundary fallback={() => <BrokenMessage />}>
+                <Message ev={rootEvent} room={room} continuation={false} inThread />
+              </ErrorBoundary>
               <div className="thread-divider">
                 <span>
                   {replies.length} {replies.length === 1 ? "reply" : "replies"}

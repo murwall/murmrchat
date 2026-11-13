@@ -5,6 +5,7 @@ import { getPinnedIds, getSaved, togglePinned, toggleSaved, canPin } from "../ma
 import { formatDateSeparator, formatTime, linkify, sanitizeHtml, stripReplyFallback } from "../util/format";
 import { Avatar } from "./Avatar";
 import { BookmarkIcon, CloseIcon, PinIcon } from "./icons";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const fetched = new Map<string, Promise<MatrixEvent | null>>();
 
@@ -119,6 +120,7 @@ export function SavedPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {items.map((i) => (
+          <ErrorBoundary key={i.eventId} fallback={() => <div className="preview-row muted small">⚠ Couldn't display this message.</div>}>
           <PreviewRow
             key={i.eventId}
             room={client.getRoom(i.roomId)}
@@ -131,6 +133,7 @@ export function SavedPanel({ onClose }: { onClose: () => void }) {
               </button>
             }
           />
+          </ErrorBoundary>
         ))}
       </div>
     </aside>
@@ -161,6 +164,7 @@ export function PinnedPanel({ room, onClose }: { room: Room; onClose: () => void
           </div>
         )}
         {ids.map((id) => (
+          <ErrorBoundary key={id} fallback={() => <div className="preview-row muted small">⚠ Couldn't display this message.</div>}>
           <PreviewRow
             key={id}
             room={room}
@@ -174,6 +178,7 @@ export function PinnedPanel({ room, onClose }: { room: Room; onClose: () => void
               ) : null
             }
           />
+          </ErrorBoundary>
         ))}
       </div>
     </aside>
