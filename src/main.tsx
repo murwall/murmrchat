@@ -9,6 +9,14 @@ if (import.meta.env.DEV) {
   );
 }
 
+// ⌘R / Ctrl+R reloads the window (the Tauri webview has no built-in reload shortcut).
+window.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "r") {
+    e.preventDefault();
+    location.reload();
+  }
+});
+
 // No React.StrictMode: its double-invoked effects would start two Matrix clients.
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <ErrorBoundary
