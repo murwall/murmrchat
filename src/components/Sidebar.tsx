@@ -37,7 +37,7 @@ type SectionKey = string;
 const FAVORITES = "__favorites";
 const CHANNELS = "__channels";
 const DMS = "__dms";
-const DRAG_TYPE = "application/x-matterix-room";
+const DRAG_TYPE = "application/x-murmrchat-room";
 
 export function Sidebar({
   teamId,

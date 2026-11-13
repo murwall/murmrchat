@@ -38,7 +38,7 @@ const DB_VERSION = 2; // v1 stored plaintext; upgrading deletes it.
 const MAX_CRAWL_PER_ROOM = 5000;
 const CRAWL_DELAY_MS = 1500;
 
-const dbName = (userId: string) => `matterix-search-${userId}`;
+const dbName = (userId: string) => `murmrchat-search-${userId}`;
 
 function openDb(userId: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -81,7 +81,7 @@ async function deriveIndexKey(passphrase: string | null): Promise<{ key: CryptoK
   }
   const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "HKDF", false, ["deriveKey"]);
   const key = await crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("matterix-search-index"), info: new TextEncoder().encode("v1") },
+    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("murmrchat-search-index"), info: new TextEncoder().encode("v1") },
     material,
     { name: "AES-GCM", length: 256 },
     false,

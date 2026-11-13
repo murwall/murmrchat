@@ -4,6 +4,7 @@ import { decodeRecoveryKey, deriveRecoveryKeyFromPassphrase } from "matrix-js-sd
 import type { SecretStorageKeyDescription } from "matrix-js-sdk/lib/secret-storage";
 import { saveSession, type StoredSession } from "./session";
 import { deleteSearchIndex } from "./search";
+import { migrateLegacyData } from "./migrate";
 
 /**
  * Secret-storage key the user typed in (recovery key or passphrase-derived key).
@@ -17,8 +18,8 @@ let pendingSecretKey: Uint8Array<ArrayBuffer> | null = null;
  */
 function storeNames(session: StoredSession) {
   return session.pickleKey
-    ? { sync: `matterix-sync-${session.userId}-${session.deviceId}`, crypto: `matterix-crypto-${session.userId}-${session.deviceId}` }
-    : { sync: `matterix-sync-${session.userId}`, crypto: `matterix-crypto-${session.userId}` };
+    ? { sync: `murmrchat-sync-${session.userId}-${session.deviceId}`, crypto: `murmrchat-crypto-${session.userId}-${session.deviceId}` }
+    : { sync: `murmrchat-sync-${session.userId}`, crypto: `murmrchat-crypto-${session.userId}` };
 }
 
 function deleteDb(name: string): Promise<void> {
@@ -47,8 +48,8 @@ export async function startMatrixClient(session: StoredSession): Promise<MatrixC
   currentPassphrase = session.pickleKey ?? null;
   if (session.pickleKey) {
     // Clean up databases left behind by the first version's naming scheme.
-    await deleteCryptoStore(`matterix-crypto-${session.userId}`);
-    await deleteDb(`matterix-sync-${session.userId}`);
+    await deleteCryptoStore(`murmrchat-crypto-${session.userId}`);
+    await deleteDb(`murmrchat-sync-${session.userId}`);
   }
 
   const store = new IndexedDBStore({
@@ -108,6 +109,8 @@ export async function startMatrixClient(session: StoredSession): Promise<MatrixC
     lazyLoadMembers: true,
   });
   await ready;
+  // Before anything reads our account data: carry over data saved under the app's old name.
+  await migrateLegacyData(client);
   return client;
 }
 

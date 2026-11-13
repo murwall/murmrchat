@@ -16,13 +16,13 @@ interface Props {
 }
 
 /** Fired by a message's "Edit" action; the matching composer switches to edit mode. */
-export const EDIT_EVENT = "matterix:edit";
+export const EDIT_EVENT = "murmrchat:edit";
 export function requestEdit(roomId: string, eventId: string) {
   window.dispatchEvent(new CustomEvent(EDIT_EVENT, { detail: { roomId, eventId } }));
 }
 
 /** Files dropped anywhere on a channel or thread are handed to that view's composer. */
-const DROP_EVENT = "matterix:drop-files";
+const DROP_EVENT = "murmrchat:drop-files";
 
 /** Props to spread on a container (channel or thread panel) to make it a file drop zone. */
 export function useFileDropZone(roomId: string, threadId?: string) {

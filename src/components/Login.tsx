@@ -17,7 +17,7 @@ type Step =
   | { kind: "password"; baseUrl: string };
 
 export function Login({ onLoggedIn }: { onLoggedIn: (s: StoredSession) => void }) {
-  const [server, setServer] = useState(() => localStorage.getItem("matterix.lastServer") ?? "matrix.org");
+  const [server, setServer] = useState(() => localStorage.getItem("murmrchat.lastServer") ?? "matrix.org");
   const [step, setStep] = useState<Step>({ kind: "server" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (s: StoredSession) => void }
   const onContinue = () =>
     run(async () => {
       const baseUrl = await resolveHomeserver(server);
-      localStorage.setItem("matterix.lastServer", server.trim());
+      localStorage.setItem("murmrchat.lastServer", server.trim());
       const methods = await getLoginMethods(baseUrl);
       if (!methods.oauth && !methods.password) throw new Error("This server doesn't offer a supported sign-in method");
       if (server.trim().startsWith("@")) setUser(server.trim());
@@ -71,7 +71,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (s: StoredSession) => void }
     <div className="login-screen">
       <div className="login-card">
         <div className="login-logo">
-          <span className="logo-mark">M</span> Matterix
+          <span className="logo-mark">M</span> MurmrChat
         </div>
 
         {step.kind === "server" && (
@@ -101,7 +101,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (s: StoredSession) => void }
           <div>
             <h1>Finish signing in in your browser</h1>
             <p className="muted">
-              A browser window opened at your account provider. Sign in there and approve <b>Matterix</b>. Check that the
+              A browser window opened at your account provider. Sign in there and approve <b>MurmrChat</b>. Check that the
               code shown in the browser matches this one:
             </p>
             <div className="device-code">{step.login.userCode}</div>

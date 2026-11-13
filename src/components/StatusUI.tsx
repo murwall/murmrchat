@@ -329,7 +329,7 @@ export function CustomStatusDialog({ current, onClose }: { current: CustomStatus
             ))}
           </select>
         </label>
-        <p className="muted small">Visible to other Matterix users. Element and other apps don't show custom statuses.</p>
+        <p className="muted small">Visible to other MurmrChat users. Element and other apps don't show custom statuses.</p>
         <div className="row end">
           <button className="btn-secondary" onClick={onClose}>
             Cancel

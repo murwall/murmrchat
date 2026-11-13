@@ -30,7 +30,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <ErrorBoundary
     fallback={(error) => (
       <div className="broken-panel">
-        <h3>Matterix ran into a problem.</h3>
+        <h3>MurmrChat ran into a problem.</h3>
         <p className="muted small">{error.message}</p>
         <button className="btn-primary" onClick={() => location.reload()}>
           Reload

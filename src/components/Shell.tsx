@@ -43,9 +43,9 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
   const client = useClient();
   const tick = useClientTick();
 
-  const [teamId, setTeamId] = useState<string>(() => loadPref("matterix.team", HOME_TEAM));
+  const [teamId, setTeamId] = useState<string>(() => loadPref("murmrchat.team", HOME_TEAM));
   // Remember the last channel per team, like Mattermost.
-  const [lastRoomByTeam, setLastRoomByTeam] = useState<Record<string, string>>(() => loadPref("matterix.lastRooms", {}));
+  const [lastRoomByTeam, setLastRoomByTeam] = useState<Record<string, string>>(() => loadPref("murmrchat.lastRooms", {}));
   const [right, setRight] = useState<RightPanel>(null);
   const [view, setView] = useState<CenterView>({ kind: "channel" });
   const [profile, setProfile] = useState<{ userId: string; pos: { x: number; y: number } } | null>(null);
@@ -63,8 +63,8 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
     return () => searchIndex.stop();
   }, [searchIndex]);
 
-  useEffect(() => localStorage.setItem("matterix.team", JSON.stringify(teamId)), [teamId]);
-  useEffect(() => localStorage.setItem("matterix.lastRooms", JSON.stringify(lastRoomByTeam)), [lastRoomByTeam]);
+  useEffect(() => localStorage.setItem("murmrchat.team", JSON.stringify(teamId)), [teamId]);
+  useEffect(() => localStorage.setItem("murmrchat.lastRooms", JSON.stringify(lastRoomByTeam)), [lastRoomByTeam]);
 
   // If the stored team no longer exists, fall back to Home.
   const teams = getTeams(client);

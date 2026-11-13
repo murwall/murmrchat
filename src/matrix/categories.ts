@@ -2,10 +2,10 @@ import type { MatrixClient } from "matrix-js-sdk";
 
 /**
  * Custom sidebar categories, per team (like Mattermost). Stored in account data so they
- * sync across your Matterix installs. Favorites stays the standard m.favourite room tag.
+ * sync across your MurmrChat installs. Favorites stays the standard m.favourite room tag.
  */
 
-export const CATEGORIES_TYPE = "io.matterix.categories";
+export const CATEGORIES_TYPE = "se.murwall.murmrchat.categories";
 
 export interface Category {
   id: string;

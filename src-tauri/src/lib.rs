@@ -1,4 +1,4 @@
-const KEYCHAIN_SERVICE: &str = "com.matterix.desktop";
+const KEYCHAIN_SERVICE: &str = "se.murwall.murmrchat";
 
 fn entry(key: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYCHAIN_SERVICE, key).map_err(|e| e.to_string())
@@ -34,7 +34,7 @@ fn secret_delete(key: String) -> Result<(), String> {
 #[tauri::command]
 fn frontend_log(level: String, message: String) {
     let msg: String = message.chars().take(2000).collect();
-    eprintln!("[matterix:{level}] {msg}");
+    eprintln!("[murmrchat:{level}] {msg}");
 }
 
 /// Opt out of App Nap. With the window closed to the Dock, macOS would otherwise throttle the app's
@@ -66,7 +66,7 @@ pub fn run() {
 
     tauri::Builder::default()
         // Closing the window (red button / Cmd+W) only hides it, like Mattermost and other Mac chat
-        // apps: Matterix keeps syncing and notifying in the background. Cmd+Q really quits.
+        // apps: MurmrChat keeps syncing and notifying in the background. Cmd+Q really quits.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {

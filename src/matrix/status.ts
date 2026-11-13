@@ -8,7 +8,7 @@ import type { MatrixClient, MatrixEvent, User } from "matrix-js-sdk";
  *  - Availability (online / away / dnd / offline) uses Matrix presence where the server supports it.
  *    Presence has no "do not disturb", so DND is published as "unavailable" plus our profile field.
  *  - Custom status (emoji + text + expiry) is stored in a custom profile field (MSC4133, Matrix 1.16),
- *    so other Matterix users can see it. Other clients ignore it.
+ *    so other MurmrChat users can see it. Other clients ignore it.
  */
 
 export type Availability = "online" | "away" | "dnd" | "offline";
@@ -23,8 +23,8 @@ export interface CustomStatus {
   dnd_until?: number;
 }
 
-export const STATUS_FIELD = "io.matterix.status";
-const MY_PREFS = "io.matterix.availability"; // account data: what I chose, so it survives restarts
+export const STATUS_FIELD = "se.murwall.murmrchat.status";
+export const MY_PREFS = "se.murwall.murmrchat.availability"; // account data: what I chose, so it survives restarts
 
 const AWAY_AFTER_MS = 5 * 60 * 1000;
 

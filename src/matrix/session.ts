@@ -17,17 +17,17 @@ export interface StoredSession {
   pickleKey?: string;
 }
 
-const SESSION_KEY = "matterix.session";
+const SESSION_KEY = "murmrchat.session";
 /**
  * Keychain entry for the session. The dev build (http://localhost:1420) and the packaged app
  * (tauri://localhost) have separate browser storage — and so separate encryption stores — so they
  * must not share a session: the second one would start the same device with an empty key store.
  */
 const KEYCHAIN_KEY = import.meta.env.DEV ? SESSION_KEY : `${SESSION_KEY}.app`;
-const CLIENT_IDS_KEY = "matterix.oauthClientIds";
+const CLIENT_IDS_KEY = "murmrchat.oauthClientIds";
 
 /** Public "home page" for the app, required by OAuth dynamic client registration. */
-const CLIENT_URI = "https://matterix.invalid/";
+const CLIENT_URI = "https://github.com/murwall/murmrchat";
 
 export async function loadSession(): Promise<StoredSession | null> {
   try {
@@ -111,7 +111,7 @@ export async function loginWithPassword(baseUrl: string, user: string, password:
     type: "m.login.password",
     identifier: { type: "m.id.user", user },
     password,
-    initial_device_display_name: "Matterix Desktop",
+    initial_device_display_name: "MurmrChat Desktop",
   });
   return {
     baseUrl,
@@ -166,7 +166,7 @@ export async function startDeviceLogin(baseUrl: string): Promise<DeviceLogin> {
   if (!clientId) {
     clientId = await OAuth2.registerClient(metadata, {
       application_type: "native",
-      client_name: "Matterix",
+      client_name: "MurmrChat",
       client_uri: CLIENT_URI,
       grant_types: [OAuthGrantType.DeviceAuthorization, OAuthGrantType.RefreshToken],
       // Device flow only: no redirect-based "code" response type.

@@ -3,7 +3,7 @@ import { CryptoEvent } from "matrix-js-sdk/lib/crypto-api";
 import { getEncryptionStatus, unlockWithRecovery, type EncryptionStatus } from "../matrix/client";
 import { useClient } from "../matrix/hooks";
 
-export const UNLOCK_EVENT = "matterix:unlock";
+export const UNLOCK_EVENT = "murmrchat:unlock";
 
 /** Open the "Unlock encrypted messages" dialog from anywhere. */
 export function requestUnlock() {

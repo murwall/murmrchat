@@ -14,7 +14,7 @@ interface State {
 
 /**
  * Contains rendering errors so one bad message (or panel) can't unmount the whole app —
- * otherwise a single malformed event would crash Matterix every time its channel opens.
+ * otherwise a single malformed event would crash MurmrChat every time its channel opens.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };

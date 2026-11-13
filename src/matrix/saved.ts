@@ -3,12 +3,12 @@ import type { MatrixClient, Room } from "matrix-js-sdk";
 
 /**
  * Saved messages (personal bookmarks, Mattermost's "Saved") — stored in account data so
- * they sync across your Matterix installs.
+ * they sync across your MurmrChat installs.
  * Pinned messages (shared with the channel) — the standard m.room.pinned_events state event,
  * so they also show up in Element's pinned list.
  */
 
-export const SAVED_TYPE = "io.matterix.saved";
+export const SAVED_TYPE = "se.murwall.murmrchat.saved";
 
 export interface SavedItem {
   roomId: string;

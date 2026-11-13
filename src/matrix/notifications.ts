@@ -10,7 +10,7 @@ import { isDndActive } from "./status";
 
 const inTauri = () => "__TAURI_INTERNALS__" in window;
 
-const PREVIEW_KEY = "matterix.notificationPreviews";
+const PREVIEW_KEY = "murmrchat.notificationPreviews";
 
 /** Whether desktop notifications include message text (they show in macOS Notification Center). */
 export function getNotificationPreviews(): boolean {
