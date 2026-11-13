@@ -4,6 +4,7 @@ import { openDm } from "../matrix/dm";
 import { useNotifications } from "../matrix/notifications";
 import { dmRoomIds, getTeams, HOME_TEAM, roomsInSpace, sidebarRooms } from "../matrix/rooms";
 import { SearchIndex } from "../matrix/search";
+import { getLocalStorePassphrase } from "../matrix/client";
 import { ChannelView } from "./ChannelView";
 import { BrowseChannelsDialog, CreateChannelDialog } from "./Channels";
 import { GlobalThreads } from "./GlobalThreads";
@@ -56,7 +57,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Local search index for encrypted rooms (lives as long as the session).
-  const searchIndex = useMemo(() => new SearchIndex(client), [client]);
+  const searchIndex = useMemo(() => new SearchIndex(client, getLocalStorePassphrase()), [client]);
   useEffect(() => {
     searchIndex.start();
     return () => searchIndex.stop();

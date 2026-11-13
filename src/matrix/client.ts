@@ -3,6 +3,7 @@ import type { MatrixClient } from "matrix-js-sdk";
 import { decodeRecoveryKey, deriveRecoveryKeyFromPassphrase } from "matrix-js-sdk/lib/crypto-api";
 import type { SecretStorageKeyDescription } from "matrix-js-sdk/lib/secret-storage";
 import { saveSession, type StoredSession } from "./session";
+import { deleteSearchIndex } from "./search";
 
 /**
  * Secret-storage key the user typed in (recovery key or passphrase-derived key).
@@ -33,10 +34,17 @@ async function deleteCryptoStore(prefix: string) {
 }
 
 let currentStoreNames: { sync: string; crypto: string } | null = null;
+let currentPassphrase: string | null = null;
+
+/** The passphrase protecting this session's local stores (null for first-version sessions). */
+export function getLocalStorePassphrase(): string | null {
+  return currentPassphrase;
+}
 
 export async function startMatrixClient(session: StoredSession): Promise<MatrixClient> {
   const names = storeNames(session);
   currentStoreNames = names;
+  currentPassphrase = session.pickleKey ?? null;
   if (session.pickleKey) {
     // Clean up databases left behind by the first version's naming scheme.
     await deleteCryptoStore(`matterix-crypto-${session.userId}`);
@@ -175,6 +183,7 @@ export async function unlockWithRecovery(
 }
 
 export async function logout(client: MatrixClient) {
+  const userId = client.getSafeUserId();
   try {
     await client.logout(true);
   } catch {
@@ -187,4 +196,7 @@ export async function logout(client: MatrixClient) {
     await deleteCryptoStore(currentStoreNames.crypto);
     await deleteDb(currentStoreNames.sync);
   }
+  // Decrypted message text lives in the search index; never leave it behind.
+  await deleteSearchIndex(userId);
+  currentPassphrase = null;
 }

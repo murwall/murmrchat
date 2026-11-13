@@ -10,7 +10,9 @@ import { stripReplyFallback } from "../util/format";
  * index on this device, in IndexedDB:
  *   - every message we see or decrypt is indexed as it arrives;
  *   - a slow background crawler walks back through each room's history to index older messages.
- * The index never leaves this device.
+ * The index never leaves this device. Message text and senders are encrypted at rest (AES-GCM) with a
+ * key derived from this session's local store passphrase (kept in the OS keychain); only the event ID,
+ * room ID and timestamp are stored in the clear, for ordering and filtering.
  */
 
 export interface IndexedMessage {
@@ -23,22 +25,91 @@ export interface IndexedMessage {
   lower: string;
 }
 
-const DB_VERSION = 1;
+/** What we store per message: metadata in the clear, the rest encrypted. */
+interface StoredRecord {
+  eventId: string;
+  roomId: string;
+  ts: number;
+  iv: Uint8Array;
+  data: ArrayBuffer; // AES-GCM( JSON {threadId, sender, body} )
+}
+
+const DB_VERSION = 2; // v1 stored plaintext; upgrading deletes it.
 const MAX_CRAWL_PER_ROOM = 5000;
 const CRAWL_DELAY_MS = 1500;
 
+const dbName = (userId: string) => `matterix-search-${userId}`;
+
 function openDb(userId: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(`matterix-search-${userId}`, DB_VERSION);
+    const req = indexedDB.open(dbName(userId), DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
+      // Drop anything from older versions (v1 kept plaintext) and start over.
+      for (const name of Array.from(db.objectStoreNames)) db.deleteObjectStore(name);
       const msgs = db.createObjectStore("messages", { keyPath: "eventId" });
       msgs.createIndex("ts", "ts");
       db.createObjectStore("crawler", { keyPath: "roomId" });
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Let deleteSearchIndex() (on sign-out) proceed instead of being blocked by this connection.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
+}
+
+/** Delete the local search index (on sign-out, or when it can't be decrypted). */
+export function deleteSearchIndex(userId: string): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase(dbName(userId));
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  });
+}
+
+/**
+ * AES-GCM key for the index, derived (HKDF-SHA256) from the session's local-store passphrase.
+ * Without one (sessions from the first app version) we use a random per-run key and wipe the
+ * index at startup, so nothing readable persists.
+ */
+async function deriveIndexKey(passphrase: string | null): Promise<{ key: CryptoKey; persistent: boolean }> {
+  if (!passphrase) {
+    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    return { key, persistent: false };
+  }
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "HKDF", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("matterix-search-index"), info: new TextEncoder().encode("v1") },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+  return { key, persistent: true };
+}
+
+async function seal(key: CryptoKey, m: IndexedMessage): Promise<StoredRecord> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plain = new TextEncoder().encode(JSON.stringify({ threadId: m.threadId, sender: m.sender, body: m.body }));
+  // Bind the ciphertext to its event so records can't be swapped around.
+  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: new TextEncoder().encode(m.eventId) }, key, plain);
+  return { eventId: m.eventId, roomId: m.roomId, ts: m.ts, iv, data };
+}
+
+async function open(key: CryptoKey, r: StoredRecord): Promise<IndexedMessage | null> {
+  try {
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: r.iv as Uint8Array<ArrayBuffer>, additionalData: new TextEncoder().encode(r.eventId) },
+      key,
+      r.data,
+    );
+    const { threadId, sender, body } = JSON.parse(new TextDecoder().decode(plain));
+    return { eventId: r.eventId, roomId: r.roomId, ts: r.ts, threadId, sender, body, lower: String(body).toLowerCase() };
+  } catch {
+    return null;
+  }
 }
 
 function txDone(tx: IDBTransaction): Promise<void> {
@@ -87,8 +158,20 @@ export class SearchIndex {
   /** Progress of the history crawler, for display. */
   crawlStatus = { roomsDone: 0, roomsTotal: 0, indexed: 0 };
 
-  constructor(private client: MatrixClient) {
-    this.db = openDb(client.getSafeUserId());
+  private key: Promise<CryptoKey>;
+
+  constructor(
+    private client: MatrixClient,
+    passphrase: string | null,
+  ) {
+    const userId = client.getSafeUserId();
+    const derived = deriveIndexKey(passphrase);
+    this.key = derived.then((d) => d.key);
+    // Non-persistent key: wipe whatever is on disk first, it could never be read again anyway.
+    this.db = derived.then(async (d) => {
+      if (!d.persistent) await deleteSearchIndex(userId);
+      return openDb(userId);
+    });
   }
 
   start() {
@@ -109,6 +192,7 @@ export class SearchIndex {
   stop() {
     this.stopped = true;
     for (const off of this.listeners) off();
+    void this.db.then((db) => db.close()).catch(() => {});
   }
 
   add(ev: MatrixEvent) {
@@ -122,10 +206,13 @@ export class SearchIndex {
     this.flushTimer = null;
     const batch = this.queue.splice(0);
     if (!batch.length) return;
+    const key = await this.key;
+    const sealed = await Promise.all(batch.map((m) => seal(key, m)));
     const db = await this.db;
+    if (this.stopped) return;
     const tx = db.transaction("messages", "readwrite");
     const store = tx.objectStore("messages");
-    for (const item of batch) store.put(item);
+    for (const rec of sealed) store.put(rec);
     await txDone(tx).catch(() => {});
   }
 
@@ -142,20 +229,24 @@ export class SearchIndex {
       : null;
 
     const db = await this.db;
-    const results: IndexedMessage[] = [];
-    await new Promise<void>((resolve) => {
-      const req = db.transaction("messages").objectStore("messages").index("ts").openCursor(null, "prev");
-      req.onsuccess = () => {
-        const cursor = req.result;
-        if (!cursor || results.length >= limit) return resolve();
-        const m = cursor.value as IndexedMessage;
-        const okRoom = !roomIds || roomIds.has(m.roomId);
-        const okFrom = !fromFilter || m.sender.toLowerCase().includes(fromFilter.replace(/^@/, ""));
-        if (okRoom && okFrom && words.every((w) => m.lower.includes(w))) results.push(m);
-        cursor.continue();
-      };
-      req.onerror = () => resolve();
+    const key = await this.key;
+    // Load candidate records (newest first). Text is encrypted, so matching happens after decryption.
+    const records = await new Promise<StoredRecord[]>((resolve) => {
+      const req = db.transaction("messages").objectStore("messages").index("ts").getAll();
+      req.onsuccess = () => resolve((req.result as StoredRecord[]).reverse());
+      req.onerror = () => resolve([]);
     });
+    const candidates = roomIds ? records.filter((r) => roomIds.has(r.roomId)) : records;
+    const results: IndexedMessage[] = [];
+    const CHUNK = 400;
+    for (let i = 0; i < candidates.length && results.length < limit; i += CHUNK) {
+      const opened = await Promise.all(candidates.slice(i, i + CHUNK).map((r) => open(key, r)));
+      for (const m of opened) {
+        if (!m) continue;
+        const okFrom = !fromFilter || m.sender.toLowerCase().includes(fromFilter.replace(/^@/, ""));
+        if (okFrom && words.every((w) => m.lower.includes(w))) results.push(m);
+      }
+    }
 
     // Unencrypted rooms: also ask the server, which may have history we haven't crawled yet.
     if (words.length && !fromFilter) {
