@@ -6,11 +6,13 @@ import {
   generateRecoveryKey,
   getRecoveryInfo,
   whyCantMakeRecoveryKey,
+  wouldDeleteOldBackup,
   type AuthRequest,
   type RecoveryInfo,
 } from "../matrix/recovery";
 import { openExternal } from "../util/open";
 import { saveRecoveryKeyFile } from "../util/secrets";
+import { confirmDialog } from "../util/dialogs";
 
 export const ENCRYPTION_EVENT = "murmrchat:encryption";
 
@@ -36,6 +38,8 @@ export function EncryptionDialog({ onClose, onUnlock, onChanged }: { onClose: ()
   const [step, setStep] = useState<Step>({ kind: "overview" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set only after the user explicitly agreed to replace a backup this device can't open.
+  const [deleteOldBackup, setDeleteOldBackup] = useState(false);
 
   const refresh = () =>
     getRecoveryInfo(client)
@@ -79,7 +83,20 @@ export function EncryptionDialog({ onClose, onUnlock, onChanged }: { onClose: ()
               onClose();
               onUnlock();
             }}
-            onSetUp={generate}
+            onSetUp={async () => {
+              if (info && wouldDeleteOldBackup(info)) {
+                const ok = await confirmDialog({
+                  title: "Delete your old key backup?",
+                  message:
+                    "Your account already has a key backup, but this device doesn't have its key. Setting up recovery here deletes that backup from the server, and any messages only it can unlock become unreadable for good. If you still have that backup's Security Key, restore it in Element first instead.",
+                  confirmLabel: "Delete backup and set up",
+                  danger: true,
+                });
+                if (!ok) return;
+                setDeleteOldBackup(true);
+              }
+              await generate();
+            }}
             onChange={() => setStep({ kind: "confirm-change" })}
           />
         )}
@@ -116,6 +133,7 @@ export function EncryptionDialog({ onClose, onUnlock, onChanged }: { onClose: ()
         {step.kind === "applying" && (
           <Applying
             keyToApply={step.key}
+            deleteOldBackup={deleteOldBackup}
             onDone={() => {
               setStep({ kind: "done", wasChange });
               void refresh();
@@ -191,6 +209,9 @@ function Overview({
         </p>
       )}
       {blocked && !canUnlock && <p className="muted small">{blocked}</p>}
+      {info && !blocked && wouldDeleteOldBackup(info) && (
+        <p className="error small">Your account has an older key backup this device can't open. Setting up recovery here would delete it.</p>
+      )}
       <div className="row end">
         <button className="btn-secondary" onClick={onClose}>
           Close
@@ -225,7 +246,11 @@ function ShowKey({ encoded, onCancel, onContinue }: { encoded: string; onCancel:
   const save = async () => {
     try {
       const path = await saveRecoveryKeyFile(`MurmrChat recovery key (Matrix Security Key)\n\n${encoded}\n`);
-      setNote(path ? `Saved to ${path}` : "Saved.");
+      setNote(
+        path
+          ? `Saved to ${path}. Once it's in your password manager, delete this file.`
+          : "Saved. Once it's in your password manager, delete the file.",
+      );
     } catch (e) {
       setNote(`Couldn't save: ${(e as Error).message}`);
     }
@@ -268,10 +293,12 @@ function ShowKey({ encoded, onCancel, onContinue }: { encoded: string; onCancel:
 
 function Applying({
   keyToApply,
+  deleteOldBackup,
   onDone,
   onFailed,
 }: {
   keyToApply: GeneratedSecretStorageKey;
+  deleteOldBackup: boolean;
   onDone: () => void;
   onFailed: (msg: string) => void;
 }) {
@@ -291,7 +318,7 @@ function Applying({
         setAuth(req);
         if (req.kind === "browser") void openExternal(req.url);
       });
-    applyRecoveryKey(client, keyToApply, prompt, setProgress)
+    applyRecoveryKey(client, keyToApply, prompt, { deleteOldBackup, onProgress: setProgress })
       .then(onDone)
       .catch((e) => onFailed((e as Error).message));
   }, []);

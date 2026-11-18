@@ -67,6 +67,16 @@ export function whyCantMakeRecoveryKey(info: RecoveryInfo): string | null {
   return null;
 }
 
+/**
+ * True when setting up recovery would have to replace a key backup this device can't open.
+ * Starting a new backup deletes every existing one on the server (the SDK's setupKeyBackup does
+ * that), so whatever history only that old backup holds would be gone for good, even for someone
+ * who still has its key. Only proceed after the user explicitly agrees.
+ */
+export function wouldDeleteOldBackup(info: RecoveryInfo): boolean {
+  return !info.recoverySetUp && !!info.backupVersion && !info.backupKeyOnDevice;
+}
+
 /** Generate a new recovery key locally. Nothing is sent to the server until {@link applyRecoveryKey}. */
 export async function generateRecoveryKey(client: MatrixClient): Promise<GeneratedSecretStorageKey & { encodedPrivateKey: string }> {
   const crypto = client.getCrypto();
@@ -129,13 +139,17 @@ export async function applyRecoveryKey(
   client: MatrixClient,
   key: GeneratedSecretStorageKey,
   prompt: AuthPrompt,
-  onProgress?: (msg: string) => void,
+  opts: { deleteOldBackup?: boolean; onProgress?: (msg: string) => void } = {},
 ): Promise<void> {
+  const { onProgress } = opts;
   const crypto = client.getCrypto();
   if (!crypto) throw new Error("Encryption is not available");
   const info = await getRecoveryInfo(client);
   const blocked = whyCantMakeRecoveryKey(info);
   if (blocked) throw new Error(blocked);
+  if (wouldDeleteOldBackup(info) && !opts.deleteOldBackup) {
+    throw new Error("Your account has an existing key backup this device can't open. Setting up recovery would delete it.");
+  }
 
   await withSecretStorageKey(key.privateKey, async () => {
     if (!info.identityExists) {
