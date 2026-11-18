@@ -40,7 +40,7 @@ export async function getRecoveryInfo(client: MatrixClient): Promise<RecoveryInf
   ]);
   const cached = csStatus.privateKeysCachedLocally;
   return {
-    deviceVerified: !!deviceStatus?.isVerified(),
+    deviceVerified: !!deviceStatus?.crossSigningVerified, // not isVerified(): see getEncryptionStatus
     recoverySetUp: !!defaultKeyId,
     identityExists: !!masterKeyId,
     identityKeysOnDevice: cached.masterKey && cached.selfSigningKey && cached.userSigningKey,

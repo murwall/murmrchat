@@ -131,7 +131,9 @@ export async function getEncryptionStatus(client: MatrixClient): Promise<Encrypt
   const crypto = client.getCrypto();
   if (!crypto) return "unknown";
   const status = await crypto.getDeviceVerificationStatus(client.getSafeUserId(), client.getDeviceId()!);
-  if (status?.isVerified()) return "verified";
+  // Not isVerified(): a device always trusts itself locally, so that is true even when it isn't
+  // cross-signed. What others see (and what makes history readable) is the cross-signing signature.
+  if (status?.crossSigningVerified) return "verified";
   const hasSecretStorage = !!(await client.secretStorage.getDefaultKeyId());
   return hasSecretStorage ? "needs-recovery" : "no-recovery-setup";
 }
