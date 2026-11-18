@@ -12,6 +12,16 @@ import { migrateLegacyData } from "./migrate";
  */
 let pendingSecretKey: Uint8Array<ArrayBuffer> | null = null;
 
+/** Run `fn` with `key` offered to the SDK as the secret-storage key, then forget it again. */
+export async function withSecretStorageKey<T>(key: Uint8Array<ArrayBuffer>, fn: () => Promise<T>): Promise<T> {
+  pendingSecretKey = key;
+  try {
+    return await fn();
+  } finally {
+    pendingSecretKey = null;
+  }
+}
+
 /**
  * Local database names. Newer logins (with a pickleKey) get per-device names, so a fresh login can
  * never pick up an older session's encryption store. Sessions from the first version keep their names.
@@ -166,8 +176,7 @@ export async function unlockWithRecovery(
   const valid = await client.secretStorage.checkKey(key, keyInfo);
   if (!valid) throw new Error("Incorrect Security Key or Phrase");
 
-  pendingSecretKey = key;
-  try {
+  await withSecretStorageKey(key, async () => {
     onProgress?.("Verifying this device…");
     await crypto.bootstrapCrossSigning({});
     onProgress?.("Restoring message keys from backup…");
@@ -180,9 +189,7 @@ export async function unlockWithRecovery(
         }
       },
     });
-  } finally {
-    pendingSecretKey = null;
-  }
+  });
 }
 
 export async function logout(client: MatrixClient) {

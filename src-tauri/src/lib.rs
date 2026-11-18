@@ -29,6 +29,35 @@ fn secret_delete(key: String) -> Result<(), String> {
     }
 }
 
+/// Save a newly generated recovery key as a text file in the user's Downloads folder (never
+/// overwriting an existing file) and return its path. The file is readable by the user only.
+#[tauri::command]
+fn save_recovery_key(app: tauri::AppHandle, contents: String) -> Result<String, String> {
+    use std::io::Write;
+    use tauri::Manager;
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    for n in 0..100 {
+        let name = if n == 0 { "murmrchat-recovery-key.txt".to_string() } else { format!("murmrchat-recovery-key-{n}.txt") };
+        let path = dir.join(name);
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        match opts.open(&path) {
+            Ok(mut f) => {
+                f.write_all(contents.as_bytes()).map_err(|e| e.to_string())?;
+                return Ok(path.to_string_lossy().into_owned());
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err("Could not find a free file name in Downloads".into())
+}
+
 /// Write a diagnostic line from the web UI to stderr (CSP violations, uncaught errors).
 /// The packaged app has no visible devtools console, so this is how problems surface.
 #[tauri::command]
@@ -172,7 +201,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![secret_get, secret_set, secret_delete, frontend_log, set_unread])
+        .invoke_handler(tauri::generate_handler![secret_get, secret_set, secret_delete, save_recovery_key, frontend_log, set_unread])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

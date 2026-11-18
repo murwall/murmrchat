@@ -16,7 +16,7 @@ import { dmPartner, dmRoomIds, HOME_TEAM, invitedRooms, markRoomRead, sidebarRoo
 import { Avatar } from "./Avatar";
 import { followedThreads, threadUnread } from "./GlobalThreads";
 import { BellOffIcon, HashIcon, LockIcon, ThreadIcon } from "./icons";
-import { requestUnlock } from "./SecurityBanner";
+import { requestEncryptionSettings } from "./EncryptionSettings";
 import { AvatarWithStatus, MyStatusMenu, StatusEmoji } from "./StatusUI";
 import { confirmDialog } from "../util/dialogs";
 
@@ -194,7 +194,7 @@ export function Sidebar({
     <aside className="sidebar">
       <header className="sidebar-header">
         <div className="team-name">{team?.name ?? "Home"}</div>
-        <MyStatusMenu onSecurityKey={requestUnlock} onLogout={onLogout} />
+        <MyStatusMenu onEncryption={requestEncryptionSettings} onLogout={onLogout} />
       </header>
 
       <div className="sidebar-tools">

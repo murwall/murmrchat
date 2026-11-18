@@ -72,7 +72,7 @@ function untilTomorrow() {
 }
 
 /** The "me" row in the sidebar header: avatar + status, opens the status menu. */
-export function MyStatusMenu({ onSecurityKey, onLogout }: { onSecurityKey: () => void; onLogout: () => void }) {
+export function MyStatusMenu({ onEncryption, onLogout }: { onEncryption: () => void; onLogout: () => void }) {
   const client = useClient();
   const me = client.getSafeUserId();
   const user = client.getUser(me);
@@ -174,10 +174,10 @@ export function MyStatusMenu({ onSecurityKey, onLogout }: { onSecurityKey: () =>
             className="status-option"
             onClick={() => {
               setOpen(false);
-              onSecurityKey();
+              onEncryption();
             }}
           >
-            Security Key…
+            Encryption…
           </button>
           <button
             className="status-option danger"

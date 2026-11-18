@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CryptoEvent } from "matrix-js-sdk/lib/crypto-api";
 import { getEncryptionStatus, unlockWithRecovery, type EncryptionStatus } from "../matrix/client";
 import { useClient } from "../matrix/hooks";
+import { ENCRYPTION_EVENT, EncryptionDialog, requestEncryptionSettings } from "./EncryptionSettings";
 
 export const UNLOCK_EVENT = "murmrchat:unlock";
 
@@ -18,6 +19,7 @@ export function SecurityBanner() {
   const client = useClient();
   const [status, setStatus] = useState<EncryptionStatus>("unknown");
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -28,7 +30,10 @@ export function SecurityBanner() {
     // Any "Unlock" button elsewhere in the app opens the dialog via this event.
     const openDialog = () => setOpen(true);
     window.addEventListener(UNLOCK_EVENT, openDialog);
+    const openSettings = () => setSettingsOpen(true);
+    window.addEventListener(ENCRYPTION_EVENT, openSettings);
     return () => {
+      window.removeEventListener(ENCRYPTION_EVENT, openSettings);
       client.off(CryptoEvent.DevicesUpdated, refresh);
       client.off(CryptoEvent.UserTrustStatusChanged, refresh);
       window.removeEventListener(UNLOCK_EVENT, openDialog);
@@ -42,7 +47,12 @@ export function SecurityBanner() {
       {showBanner && (
         <div className="banner">
           {status === "no-recovery-setup" ? (
-            <span>🔒 Your account has no key backup set up, so older encrypted messages can't be restored here.</span>
+            <>
+              <span>🔒 Your account has no key backup set up, so older encrypted messages can't be restored here.</span>
+              <button className="btn-banner" onClick={requestEncryptionSettings}>
+                Set up
+              </button>
+            </>
           ) : (
             <>
               <span>🔒 Encrypted messages are locked on this device. Enter your Security Key to read them.</span>
@@ -55,6 +65,13 @@ export function SecurityBanner() {
             ×
           </button>
         </div>
+      )}
+      {settingsOpen && (
+        <EncryptionDialog
+          onClose={() => setSettingsOpen(false)}
+          onUnlock={() => setOpen(true)}
+          onChanged={() => getEncryptionStatus(client).then(setStatus)}
+        />
       )}
       {open && (
         <UnlockDialog
@@ -96,7 +113,7 @@ function UnlockDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
         <h2>Unlock encrypted messages</h2>
         <p className="muted">
           Enter the <b>Security Key</b> (looks like <code>EsTc 1234 abcd …</code>) or <b>Security Phrase</b> you saved
-          when you set up encryption in Element. It never leaves this device.
+          when you set up recovery (here or in another Matrix app). It never leaves this device.
         </p>
         <form
           onSubmit={(e) => {
