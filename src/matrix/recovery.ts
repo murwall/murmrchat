@@ -30,10 +30,11 @@ export interface RecoveryInfo {
 export async function getRecoveryInfo(client: MatrixClient): Promise<RecoveryInfo> {
   const crypto = client.getCrypto();
   if (!crypto) throw new Error("Encryption is not available");
-  const [deviceStatus, defaultKeyId, masterKeyId, csStatus, backupInfo, backupKey] = await Promise.all([
+  const [deviceStatus, defaultKeyId, hasIdentity, csStatus, backupInfo, backupKey] = await Promise.all([
     crypto.getDeviceVerificationStatus(client.getSafeUserId(), client.getDeviceId()!),
     client.secretStorage.getDefaultKeyId(),
-    crypto.getCrossSigningKeyId(),
+    // Ask the server: getCrossSigningKeyId() only reports keys whose private part is on this device.
+    crypto.userHasCrossSigningKeys(client.getSafeUserId(), true),
     crypto.getCrossSigningStatus(),
     crypto.getKeyBackupInfo(),
     crypto.getSessionBackupPrivateKey(),
@@ -42,7 +43,7 @@ export async function getRecoveryInfo(client: MatrixClient): Promise<RecoveryInf
   return {
     deviceVerified: !!deviceStatus?.crossSigningVerified, // not isVerified(): see getEncryptionStatus
     recoverySetUp: !!defaultKeyId,
-    identityExists: !!masterKeyId,
+    identityExists: hasIdentity,
     identityKeysOnDevice: cached.masterKey && cached.selfSigningKey && cached.userSigningKey,
     backupVersion: backupInfo?.version ?? null,
     backupKeyOnDevice: !!backupKey,
@@ -139,7 +140,12 @@ export async function applyRecoveryKey(
   await withSecretStorageKey(key.privateKey, async () => {
     if (!info.identityExists) {
       onProgress?.("Creating your encryption identity…");
-      await crypto.bootstrapCrossSigning({ authUploadDeviceSigningKeys: makeAuthCallback(client, prompt) });
+      // The server confirmed there is no identity, so create one outright rather than letting the SDK
+      // look for one in secret storage (which may hold stale or emptied entries from an earlier reset).
+      await crypto.bootstrapCrossSigning({
+        setupNewCrossSigning: true,
+        authUploadDeviceSigningKeys: makeAuthCallback(client, prompt),
+      });
     }
     const newBackup = !info.backupVersion || !info.backupKeyOnDevice;
     onProgress?.(newBackup ? "Setting up key backup…" : "Saving your keys under the new recovery key…");
